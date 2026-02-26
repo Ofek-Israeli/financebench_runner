@@ -26,6 +26,8 @@ Create a YAML config file (e.g. `.config`) with at least:
 | `seed` | int | `42` |
 | `prompt_template` | str | See below |
 | `example_indices` | list of int (optional) | `[0, 1, 5, 10]` — run only these 0-based indices; omit to run all |
+| `correctness_model` | str (optional) | `gpt-4o` — OpenAI model for correctness evaluation |
+| `correctness_tolerance` | float (optional) | `0.10` — numerical tolerance for correctness (10%) |
 
 **prompt_template** must contain `{context}` and `{query}`. Example:
 
@@ -52,6 +54,20 @@ PYTHONPATH=. python -m financebench_runner \
   --input financebench/data/financebench_open_source.jsonl \
   --output financebench_runner/results.json
 
+# With a custom logit processor (requires SGLang server with --enable-custom-logit-processor):
+PYTHONPATH=. python -m financebench_runner \
+  --config financebench_runner/.config \
+  --input financebench/data/financebench_open_source.jsonl \
+  --output financebench_runner/results.json \
+  --logit-processor path/to/learned_logit_processor.py
+
+# With correctness evaluation (requires OPENAI_API_KEY):
+PYTHONPATH=. python -m financebench_runner \
+  --config financebench_runner/.config \
+  --input financebench/data/financebench_open_source.jsonl \
+  --output financebench_runner/results.json \
+  --correctness
+
 # Optional: run only first N examples
 PYTHONPATH=. python -m financebench_runner --config .config --input ../financebench/data/financebench_open_source.jsonl --output out.json --limit 5
 ```
@@ -72,6 +88,35 @@ Single JSON file: an **array of objects**, one per example:
 ]
 ```
 
+With `--correctness`, each object also includes:
+
+```json
+{
+  "is_correct": true,
+  "correctness_confidence": 0.95,
+  "correctness_reasoning": "...",
+  "correctness_category": "numerical"
+}
+```
+
+A summary is printed at the end:
+
+```
+=== Summary ===
+Examples: 34
+Mean output length: 245.3 chars
+Correctness: 22/34 (64.7%)
+```
+
+## Custom logit processor
+
+The `--logit-processor` flag accepts a path to a Python file that defines a `LearnedBloatAxisProcessor` class (a `CustomLogitProcessor` subclass from SGLang). This is the same format produced by `learning_grammar/output_processor.py`. The class must provide:
+
+- `.to_str()` -- serializes the processor so it can be sent to the SGLang server.
+- `.get_default_params()` (classmethod, optional) -- returns a dict of default `custom_params`.
+
+The SGLang server must be started with the `--enable-custom-logit-processor` flag for this to work. Ollama does not support custom logit processors.
+
 ## Prerequisites
 
 - A local LLM server that exposes an **OpenAI-compatible completions** endpoint (`/v1/completions` with `model`, `prompt`, `temperature`, `top_p`, `max_tokens`).
@@ -82,7 +127,7 @@ Single JSON file: an **array of objects**, one per example:
 **Linux (with NVIDIA GPU):** Use [SGLang](https://github.com/sgl-project/sglang). Install with `pip install "sglang[all]"` (requires vLLM, Linux only), then in a separate terminal:
 
 ```bash
-python3 -m sglang.launch_server --model meta-llama/Llama-3.2-3B-Instruct --port 30000
+python3 -m sglang.launch_server --model meta-llama/Llama-3.2-3B-Instruct --port 30000 --enable-custom-logit-processor
 ```
 
 Set in config: `sglang.base_url: "http://localhost:30000"`, `model_id: "meta-llama/Llama-3.2-3B-Instruct"`.

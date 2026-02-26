@@ -31,6 +31,28 @@ def main() -> int:
         help='Path to a JSON file mapping token IDs (strings) to bias floats, e.g. {"123": -100, "456": 5.0}',
     )
     ap.add_argument(
+        "--logit-processor",
+        default=None,
+        metavar="PY_FILE",
+        help="Path to a Python file containing a LearnedBloatAxisProcessor class "
+             "(CustomLogitProcessor subclass). Requires SGLang server started with "
+             "--enable-custom-logit-processor.",
+    )
+    ap.add_argument(
+        "--correctness",
+        action="store_true",
+        default=False,
+        help="Run correctness evaluation on each example using an OpenAI judge "
+             "(requires OPENAI_API_KEY). Adds is_correct, correctness_confidence, "
+             "correctness_reasoning, correctness_category to each output object.",
+    )
+    ap.add_argument(
+        "--correctness-model",
+        default=None,
+        metavar="MODEL",
+        help="OpenAI model for correctness evaluation (default: from config or gpt-4o)",
+    )
+    ap.add_argument(
         "-v", "--verbose",
         action="store_true",
         help="Verbose logging",
@@ -54,6 +76,9 @@ def main() -> int:
             output_path=args.output,
             limit=args.limit,
             logit_bias=logit_bias,
+            logit_processor_path=args.logit_processor,
+            run_correctness=args.correctness,
+            correctness_model=args.correctness_model,
         )
         return 0
     except Exception as e:
