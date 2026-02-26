@@ -1,0 +1,24 @@
+# Example config for use with Ollama on macOS (or Linux without GPU).
+# Copy to .config and run: ollama run llama3.2:3b  (in another terminal).
+# Then: PYTHONPATH=. python3 -m financebench_runner --config .config --input ... --output ...
+
+model_id: "llama3.2:3b"
+temperature: 0.0
+
+sglang:
+  base_url: "http://localhost:11434/v1"
+  timeout_s: 120.0
+  max_retries: 3
+
+max_new_tokens: 512
+top_p: 1.0
+seed: 42
+
+prompt_template: |
+  Context:
+  {context}
+
+  Question:
+  {query}
+
+  Answer:
