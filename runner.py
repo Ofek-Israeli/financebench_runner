@@ -6,6 +6,7 @@ import importlib.util
 import json
 import logging
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -56,27 +57,27 @@ def run_financebench(
     logit_processor_path: Optional[str] = None,
     run_correctness: bool = False,
     correctness_model: Optional[str] = None,
+    max_new_tokens: Optional[int] = None,
 ) -> None:
     """
     Load config and data, run each example through SGLang, write JSON.
     Each output object has example_id, question, ground_truth_answer, llm_answer.
+    When max_new_tokens is set, it overrides the value from the config file.
     """
     cfg = load_config(config_path)
+    if max_new_tokens is not None:
+        cfg["max_new_tokens"] = max_new_tokens
     sg = cfg.get("sglang", {})
+    base_url = str(sg.get("base_url", ""))
+    timeout_s = float(sg.get("timeout_s", 60))
     processor_cls = load_logit_processor(logit_processor_path) if logit_processor_path else None
     client = SGLangClient(
-        base_url=str(sg.get("base_url", "")),
+        base_url=base_url,
         model_id=str(cfg.get("model_id", "")),
-        timeout_s=float(sg.get("timeout_s", 60)),
+        timeout_s=timeout_s,
         max_retries=int(sg.get("max_retries", 3)),
         logit_processor_class=processor_cls,
     )
-    if not client.check_reachable():
-        LOG.error(
-            "Cannot reach LLM server at %s. Is Ollama/SGLang running? Start it first, then re-run.",
-            client.base_url,
-        )
-        sys.exit(1)
     examples: List[Example] = load_financebench(input_path)
     # Optional: run only specific indices from config (0-based)
     raw_indices = cfg.get("example_indices")
@@ -97,19 +98,33 @@ def run_financebench(
             )
     if limit is not None:
         examples = examples[:limit]
+    concurrency = int(cfg.get("concurrency", 0))
+    if concurrency < 1:
+        concurrency = len(examples)
+    LOG.info(
+        "financebench_runner: base_url=%s timeout_s=%s concurrency=%s n_examples=%s",
+        base_url, timeout_s, concurrency, len(examples),
+    )
+    LOG.info("Checking SGLang reachability at %s (timeout 5s) ...", client.base_url)
+    if not client.check_reachable():
+        LOG.error(
+            "Cannot reach LLM server at %s. Is Ollama/SGLang running? Start it first, then re-run.",
+            client.base_url,
+        )
+        sys.exit(1)
+    LOG.info("SGLang reachable at %s", client.base_url)
+
     template = str(cfg.get("prompt_template", ""))
     temperature = float(cfg.get("temperature", 0.0))
     top_p = float(cfg.get("top_p", 1.0))
     max_new_tokens = int(cfg.get("max_new_tokens", 512))
     seed = int(cfg.get("seed", 42))
 
-    concurrency = int(cfg.get("concurrency", 0))
-    if concurrency < 1:
-        concurrency = len(examples)
-
     def _run_one(idx_ex):
         i, ex = idx_ex
-        LOG.info("Running example %s/%s: %s", i + 1, len(examples), ex["example_id"])
+        ex_id = ex["example_id"]
+        LOG.info("Example %s/%s: sending request to SGLang (example_id=%s) ...", i + 1, len(examples), ex_id)
+        t0 = time.monotonic()
         prompt = template.format(context=ex["context"], query=ex["query"])
         llm_answer = client.generate(
             prompt=prompt,
@@ -119,6 +134,8 @@ def run_financebench(
             seed=seed,
             logit_bias=logit_bias,
         )
+        elapsed = time.monotonic() - t0
+        LOG.info("Example %s/%s: completed in %.1fs (example_id=%s)", i + 1, len(examples), elapsed, ex_id)
         return {
             "example_id": ex["example_id"],
             "question": ex["query"],
@@ -127,6 +144,7 @@ def run_financebench(
         }
 
     results_map: Dict[int, Dict[str, Any]] = {}
+    LOG.info("Starting %s parallel requests to SGLang (%s examples, concurrency=%s) ...", len(examples), len(examples), concurrency)
     with ThreadPoolExecutor(max_workers=concurrency) as pool:
         futures = {
             pool.submit(_run_one, (i, ex)): i

@@ -53,6 +53,13 @@ def main() -> int:
         help="OpenAI model for correctness evaluation (default: from config or gpt-4o)",
     )
     ap.add_argument(
+        "--max-new-tokens",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Max tokens per LLM reply (overrides config file when set)",
+    )
+    ap.add_argument(
         "-v", "--verbose",
         action="store_true",
         help="Verbose logging",
@@ -79,6 +86,7 @@ def main() -> int:
             logit_processor_path=args.logit_processor,
             run_correctness=args.correctness,
             correctness_model=args.correctness_model,
+            max_new_tokens=args.max_new_tokens,
         )
         return 0
     except Exception as e:

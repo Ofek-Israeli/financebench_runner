@@ -1,0 +1,116 @@
+#
+# financebench_runner Configuration
+#
+# Use 'make menuconfig' for interactive configuration (same as compressor_2).
+#
+
+mainmenu "financebench_runner Configuration"
+
+# ─────────────────────────────────────────────────────
+# Model and generation
+# ─────────────────────────────────────────────────────
+menu "Model and generation"
+
+config MODEL_ID
+	string "Model ID"
+	default "meta-llama/Llama-3.1-8B-Instruct"
+	help
+	  Model identifier for the LLM (e.g. HuggingFace path or Ollama model name).
+
+config TEMPERATURE
+	string "Temperature"
+	default "0.0"
+	help
+	  Sampling temperature (0.0 = deterministic).
+
+config MAX_NEW_TOKENS
+	int "Max new tokens per reply"
+	default 512
+	help
+	  Maximum tokens the LLM can generate per query reply.
+
+config TOP_P
+	string "Top-p (nucleus sampling)"
+	default "1.0"
+	help
+	  Top-p value for nucleus sampling.
+
+config SEED
+	int "Random seed"
+	default 42
+	help
+	  Seed for reproducible generation.
+
+endmenu
+
+# ─────────────────────────────────────────────────────
+# SGLang / server
+# ─────────────────────────────────────────────────────
+menu "SGLang server"
+
+config SGLANG_BASE_URL
+	string "SGLang base URL"
+	default "http://localhost:8000/v1"
+	help
+	  Base URL of the SGLang (or OpenAI-compatible) server.
+
+config SGLANG_TIMEOUT_S
+	string "Request timeout (seconds)"
+	default "120.0"
+	help
+	  Timeout in seconds for each completion request.
+
+config SGLANG_MAX_RETRIES
+	int "Max retries per request"
+	default 3
+	help
+	  Number of retries on request failure.
+
+endmenu
+
+# ─────────────────────────────────────────────────────
+# Evaluation set
+# ─────────────────────────────────────────────────────
+menu "Evaluation set"
+
+config EXAMPLE_INDICES
+	string "Example indices (comma-separated; empty = all)"
+	default ""
+	help
+	  Comma-separated 0-based indices to run, e.g. "0,1,5,10".
+	  Leave empty to run all examples in the dataset.
+
+endmenu
+
+# ─────────────────────────────────────────────────────
+# Correctness evaluation
+# ─────────────────────────────────────────────────────
+menu "Correctness evaluation"
+
+config CORRECTNESS_MODEL
+	string "Correctness judge model"
+	default "gpt-4o"
+	help
+	  OpenAI model used for correctness evaluation (with --correctness).
+
+config CORRECTNESS_TOLERANCE
+	string "Numerical tolerance (e.g. 0.10 = 10%%)"
+	default "0.10"
+	help
+	  Tolerance for numerical comparison in correctness (0.10 = 10%%).
+
+endmenu
+
+# ─────────────────────────────────────────────────────
+# Prompt
+# ─────────────────────────────────────────────────────
+menu "Prompt"
+
+config PROMPT_TEMPLATE
+	string "Prompt template (use \\n for newlines)"
+	default "  Context:\\n  {context}\\n\\n  Question:\\n  {query}\\n\\n  Answer:\\n"
+	help
+	  Prompt template. Must contain {context} and {query}.
+	  Use \\n for newlines in the value.
+
+endmenu

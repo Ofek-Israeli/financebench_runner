@@ -10,9 +10,21 @@ From this directory (or with the repo on `PYTHONPATH`):
 pip install -r requirements.txt
 ```
 
-## Config (YAML)
+## Configuration
 
-Create a YAML config file (e.g. `.config`) with at least:
+Configure the runner the same way as **compressor_2**: run **`make menuconfig`** from this directory for the interactive ncurses menu. This writes a Kconfig-format `.config`. The runner accepts both:
+
+- **Kconfig .config** (from `make menuconfig` or `make defconfig`) — same style as compressor_2.
+- **YAML .config** — legacy format; if your `.config` is YAML it is still loaded. The first time you run `make menuconfig` with a YAML `.config`, it is backed up to `.config.yaml.bak`.
+
+```bash
+make menuconfig   # Interactive configuration (ncurses)
+make defconfig    # Load default configuration
+```
+
+## Config (YAML or Kconfig)
+
+Create or edit a config file (e.g. `.config`). If using YAML, it must contain at least:
 
 | Key | Type | Example |
 |-----|------|---------|

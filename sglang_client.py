@@ -48,7 +48,11 @@ class SGLangClient:
         try:
             requests.get(self.base_url, timeout=timeout_s)
             return True
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+        except requests.exceptions.ConnectionError as e:
+            logger.warning("SGLang check_reachable: connection failed to %s: %s", self.base_url, e)
+            return False
+        except requests.exceptions.Timeout as e:
+            logger.warning("SGLang check_reachable: timeout after %ss waiting for %s: %s", timeout_s, self.base_url, e)
             return False
 
     def generate(
@@ -77,6 +81,11 @@ class SGLangClient:
                 payload["custom_params"] = self.logit_processor_class.get_default_params()
         last_exc: Optional[Exception] = None
         for attempt in range(self.max_retries):
+            t0 = time.monotonic()
+            logger.info(
+                "SGLang generate: POST %s timeout=%ss attempt %s/%s",
+                self._url, self.timeout_s, attempt + 1, self.max_retries,
+            )
             try:
                 r = requests.post(
                     self._url,
@@ -90,12 +99,18 @@ class SGLangClient:
                 if not choices:
                     return ""
                 text = choices[0].get("text", "")
+                elapsed = time.monotonic() - t0
+                logger.info("SGLang generate: completed in %.1fs", elapsed)
                 if isinstance(text, str):
                     return text.strip()
                 return str(text).strip()
             except requests.exceptions.RequestException as e:
                 last_exc = e
-                logger.warning("SGLang request attempt %s failed: %s", attempt + 1, e)
+                elapsed = time.monotonic() - t0
+                logger.warning(
+                    "SGLang generate attempt %s/%s failed after %.1fs: %s",
+                    attempt + 1, self.max_retries, elapsed, e,
+                )
                 if attempt < self.max_retries - 1:
                     time.sleep(2 ** attempt)
         raise RuntimeError(f"SGLang generate failed after {self.max_retries} retries") from last_exc

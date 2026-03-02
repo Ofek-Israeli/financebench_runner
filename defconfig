@@ -1,0 +1,15 @@
+# financebench_runner default configuration
+# Run 'make menuconfig' to edit (same ncurses UI as compressor_2).
+
+CONFIG_MODEL_ID="meta-llama/Llama-3.1-8B-Instruct"
+CONFIG_TEMPERATURE="0.0"
+CONFIG_MAX_NEW_TOKENS=512
+CONFIG_TOP_P="1.0"
+CONFIG_SEED=42
+CONFIG_SGLANG_BASE_URL="http://localhost:8000/v1"
+CONFIG_SGLANG_TIMEOUT_S="120.0"
+CONFIG_SGLANG_MAX_RETRIES=3
+CONFIG_EXAMPLE_INDICES=""
+CONFIG_CORRECTNESS_MODEL="gpt-4o"
+CONFIG_CORRECTNESS_TOLERANCE="0.10"
+CONFIG_PROMPT_TEMPLATE="  Context:\n  {context}\n\n  Question:\n  {query}\n\n  Answer:\n"
