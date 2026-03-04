@@ -1,6 +1,9 @@
 """
 CLI: run FinanceBench examples through local LLM via SGLang.
   python -m financebench_runner --config .config --input path/to/financebench_open_source.jsonl --output results.json [--limit N]
+
+With --start-server the runner starts an SGLang server automatically and
+stops it when done (same behaviour as compressor_2's evolution loop).
 """
 
 import argparse
@@ -59,6 +62,31 @@ def main() -> int:
         metavar="N",
         help="Max tokens per LLM reply (overrides config file when set)",
     )
+
+    # --- SGLang server management ---
+    ap.add_argument(
+        "--start-server",
+        action="store_true",
+        default=False,
+        help="Start an SGLang server automatically before running and stop it "
+             "when done. The model and port are taken from the config file.",
+    )
+    ap.add_argument(
+        "--gpu-id",
+        default=None,
+        metavar="ID",
+        help="Physical GPU index for the SGLang server (sets "
+             "CUDA_VISIBLE_DEVICES for the server process). "
+             "Only used with --start-server.",
+    )
+    ap.add_argument(
+        "--sglang-extra-args",
+        default="",
+        metavar="ARGS",
+        help="Extra CLI arguments forwarded to sglang.launch_server "
+             "(e.g. '--mem-fraction-static 0.8'). Only used with --start-server.",
+    )
+
     ap.add_argument(
         "-v", "--verbose",
         action="store_true",
@@ -87,6 +115,9 @@ def main() -> int:
             run_correctness=args.correctness,
             correctness_model=args.correctness_model,
             max_new_tokens=args.max_new_tokens,
+            start_server=args.start_server,
+            gpu_id=args.gpu_id,
+            sglang_extra_args=args.sglang_extra_args,
         )
         return 0
     except Exception as e:

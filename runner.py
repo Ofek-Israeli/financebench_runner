@@ -58,15 +58,53 @@ def run_financebench(
     run_correctness: bool = False,
     correctness_model: Optional[str] = None,
     max_new_tokens: Optional[int] = None,
+    start_server: bool = False,
+    gpu_id: Optional[str] = None,
+    sglang_extra_args: str = "",
 ) -> None:
     """
     Load config and data, run each example through SGLang, write JSON.
     Each output object has example_id, question, ground_truth_answer, llm_answer.
     When max_new_tokens is set, it overrides the value from the config file.
+    When start_server is True, an SGLang server is started before running and
+    stopped when done (similar to compressor_2's evolution loop).
     """
     cfg = load_config(config_path)
     if max_new_tokens is not None:
         cfg["max_new_tokens"] = max_new_tokens
+
+    server = None
+    if start_server:
+        from .sglang_server import SGLangServer
+        need_custom_processor = logit_processor_path is not None
+        server = SGLangServer.from_runner_config(
+            cfg,
+            gpu_id=gpu_id,
+            extra_args=sglang_extra_args,
+            enable_custom_logit_processor=need_custom_processor,
+        )
+        server.start()
+
+    try:
+        _run_financebench_inner(
+            cfg, input_path, output_path, limit, logit_bias,
+            logit_processor_path, run_correctness, correctness_model,
+        )
+    finally:
+        if server is not None:
+            server.stop()
+
+
+def _run_financebench_inner(
+    cfg: Dict[str, Any],
+    input_path: str,
+    output_path: str,
+    limit: Optional[int],
+    logit_bias: Optional[Dict[str, float]],
+    logit_processor_path: Optional[str],
+    run_correctness: bool,
+    correctness_model: Optional[str],
+) -> None:
     sg = cfg.get("sglang", {})
     base_url = str(sg.get("base_url", ""))
     timeout_s = float(sg.get("timeout_s", 60))
@@ -79,7 +117,6 @@ def run_financebench(
         logit_processor_class=processor_cls,
     )
     examples: List[Example] = load_financebench(input_path)
-    # Optional: run only specific indices from config (0-based)
     raw_indices = cfg.get("example_indices")
     if raw_indices is not None:
         if not isinstance(raw_indices, list):
